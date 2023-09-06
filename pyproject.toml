@@ -8,6 +8,8 @@ packages = [{include = "dronesim_python"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
+pyserial = "^3.5"
+control = "^0.9.4"
 
 
 [build-system]
