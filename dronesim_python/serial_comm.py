@@ -1,5 +1,5 @@
 
-import time
+from timer import timer
 import serial
 
 class SerialComm:
@@ -12,7 +12,7 @@ class SerialComm:
       this.connection = serial.Serial(this.port, this.baudrate, timeout=1);
       this.is_connected = True;
     except Exception as e:
-      print(f"X[{time.process_time():08.3f}] SER/INIT-{this.port}: {e}");
+      print(f"X[{timer.elapsed_time():08.3f}] SER/INIT-{this.port}: {e}");
       
   def read(this):
     """
@@ -23,7 +23,7 @@ class SerialComm:
       data = this.connection.readline().decode('utf-8').strip();
       return data;
     except Exception as e:
-      print(f"X[{time.process_time():08.3f}] SER/READ-{this.port}: {e}");
+      print(f"X[{timer.elapsed_time():08.3f}] SER/READ-{this.port}: {e}");
       return None;
       
   # def write(this, data):
