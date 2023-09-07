@@ -38,10 +38,10 @@ class Drone:
     this.v_sys = velocity_tf_continuous.sample(this.dt, method="zoh");
 
     # States [p, q, r, φ, θ, ψ, u, v, w];
-    this.states = [.0, .0, .0, .0, .0, .0, .0, .0, .0];
+    this.states = [.0] *9;
 
-    this.prev_output = [0];
-    this.prev_input = [0];
+    this.prev_output = [.0] *4;
+    this.prev_input = [.0] *4;
 
   def get_command_input(this):
     """
