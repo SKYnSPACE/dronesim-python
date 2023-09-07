@@ -21,8 +21,8 @@ from timer import timer
 print(f"[{timer.elapsed_time():08.3f}] SYS: Importing custom modules... (Messages will be repeated based on the number of 'process_id's you provided)");
 
 from serial_comm import SerialComm
+from udp_comm import UdpComm
 from drone import Drone
-# from UdpComm import UdpComm
 
 print(f"[{timer.elapsed_time():08.3f}] SYS: Successfully imported custom modules. (Messages will be repeated based on the number of 'process_id's you provided)");
 
@@ -31,30 +31,27 @@ print(f"[{timer.elapsed_time():08.3f}] SYS: Successfully imported custom modules
 def main():
   print(f"[{timer.elapsed_time():08.3f}] SYS: {len(CONFIGS)} drones will be initialized.");
 
-  # Enable multiprocessing
+  ## Enable multiprocessing
   manager = multiprocessing.Manager()
 
-    # Group drones by processes
+  ## Group drones by processes
   processes = defaultdict(list)
   for config in CONFIGS:
       processes[config["process_id"]].append(config)
 
   shared_data_map = {pid: manager.list(np.zeros(9 * len(process_configs))) for pid, process_configs in processes.items()}
 
-  # Initializations
+  ## Initializations
   serial_comms = {config['drone_id']: SerialComm(config['serial_port'], config['baudrate']) for config in CONFIGS};
   drones = {config['drone_id']: Drone(config['drone_id'], serial_comms[config['drone_id']]) for config in CONFIGS};
   # udp_comm = UdpComm();
+  udp_comm = UdpComm(remote_ip="127.0.0.1", remote_port=12346);
 
   print(f"[{timer.elapsed_time():08.3f}] SYS: Initialization completed.");
 
 
 
-
-
-
-
-  # Run drones in separate processes
+  ## Run drones in separate processes
   process_handlers = [];
   for pid, process_configs in processes.items():
     drone_group = [drones[config['drone_id']] for config in process_configs]
@@ -65,15 +62,18 @@ def main():
 
 
 
-
-  # Main process to run (logging & UDP comm.)
+  ## Main process to run (logging & UDP comm.)
   try:
     while True:
+      data_packed = [];
       # This is a simple example of fetching and printing the data for all drones
       for pid, shared_data in shared_data_map.items():
         print(f"Process {pid}: {list(shared_data)}");
+        data_packed.extend(shared_data)  # accumulate data from all processes
 
-      # Logic for the UdpComm.
+      ## Logic for the UdpComm.
+      data_string = ",".join(map(str, data_packed));
+      udp_comm.send(data_string.encode())  # encode the data to bytes
 
       # Print every 2 seconds
       time.sleep(2);
