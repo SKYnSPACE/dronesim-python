@@ -3,13 +3,16 @@ import time
 import numpy as np
 import control as ctrl
 
+from timer import timer
+
 class Drone:
-  def __init__(this, serial_comm):
-    this.serial_comm = serial_comm
-    this.last_time = time.time()
+  def __init__(this, id, serial_comm):
+    this.id = id;
+    this.serial_comm = serial_comm;
+    this.last_time = time.time();
 
     # Set default time step
-    this.dt = 0.01  
+    this.dt = 0.01; # 100 Hz
 
     # Transfer functions
     pitch_rate_tf_continuous_num = [-4.922, -29.87, 7.714, 0.2748];
@@ -34,84 +37,86 @@ class Drone:
     this.r_sys = yaw_rate_tf_continuous.sample(this.dt, method="zoh");
     this.v_sys = velocity_tf_continuous.sample(this.dt, method="zoh");
 
-    # States [p, q, r, φ, θ, ψ, v_x, v_y, v_z];
+    # States [p, q, r, φ, θ, ψ, u, v, w];
     this.states = [.0, .0, .0, .0, .0, .0, .0, .0, .0];
 
     this.prev_output = [0];
     this.prev_input = [0];
 
-  def get_command_input(self):
+  def get_command_input(this):
     """
     Retrieve command input from the serial communication.
-    Return as a list for all four systems.
+    Return a list of four command inputs.
     """
-    data = self.serial_comm.read()
+    data = this.serial_comm.read();
     if data:
       try:
           # Assuming data is comma-separated for the four inputs
           inputs = [float(i) for i in data.split(',')]
           if len(inputs) != 4:
               raise ValueError
-          return inputs
+          return inputs;
       except ValueError:
-          print(f"Invalid data received: {data}")
-    return [0.0, 0.0, 0.0, 0.0]  # default command inputs
+          print(f"W[{timer.elapsed_time():08.3f}] UAV{this.id}: INVALID DATA {data}");
+    return [0.0, 0.0, 0.0, 0.0];  # default command inputs
 
-  def update_state(self, command_inputs):
+  def update_state(this, command_inputs):
     """
     Update drone states based on the command inputs and transfer functions.
     """
-    systems = [self.p_sys, self.q_sys, self.r_sys, self.v_sys]
-    outputs = []
+    systems = [this.p_sys, this.q_sys, this.r_sys, this.v_sys];
+    outputs = [];
 
     for idx, (sys, command_input) in enumerate(zip(systems, command_inputs)):
-        T, y = ctrl.forced_response(sys, [0, self.dt], [self.prev_input[idx], command_input], X0=self.prev_output[idx])
-        output = y[-1]  # Last value is the current output
+      T, y = ctrl.forced_response(sys, [0, this.dt], [this.prev_input[idx], command_input], X0=this.prev_output[idx]);
+      output = y[-1];  # Last value is the current output
 
-        # Store previous states
-        self.prev_output[idx] = output
-        self.prev_input[idx] = command_input
+      # Store previous states
+      this.prev_output[idx] = output;
+      this.prev_input[idx] = command_input;
 
-        outputs.append(output)
+      outputs.append(output);
 
     # Assigning output values for readability
-    p = outputs[0]
-    q = outputs[1]
-    r = outputs[2]
-    v = outputs[3]
+    p = outputs[0];
+    q = outputs[1];
+    r = outputs[2];
+    v = outputs[3];
 
     # Update the states based on the outputs from the transfer functions
-    self.states[0] = p
-    self.states[1] = q
-    self.states[2] = r
-    self.states[6] = v  # Assuming the velocity magnitude updates v_x
+    this.states[0] = p;
+    this.states[1] = q;
+    this.states[2] = r;
+    this.states[6] = v;  # Assuming the velocity magnitude updates u velocity only.
 
     # Update Euler angles based on p, q, r
-    phi = self.states[3]
-    theta = self.states[4]
+    phi = this.states[3];
+    theta = this.states[4];
     
-    phidot = p + q * np.sin(phi) * np.tan(theta) + r * np.cos(phi) * np.tan(theta)
-    thetadot = q * np.cos(phi) - r * np.sin(phi)
-    psidot = q * np.sin(phi) / np.cos(theta) + r * np.cos(phi) / np.cos(theta)
+    phidot = p + q * np.sin(phi) * np.tan(theta) + r * np.cos(phi) * np.tan(theta);
+    thetadot = q * np.cos(phi) - r * np.sin(phi);
+    psidot = q * np.sin(phi) / np.cos(theta) + r * np.cos(phi) / np.cos(theta);
 
     # Integrate to get new Euler angles
-    self.states[3] += phidot * self.dt
-    self.states[4] += thetadot * self.dt
-    self.states[5] += psidot * self.dt
+    this.states[3] += phidot * this.dt;
+    this.states[4] += thetadot * this.dt;
+    this.states[5] += psidot * this.dt;
+  
+    return this.states;  # Return the updated states
 
   def run(this, shared_data, index):
     """
     Continuous update loop to run in a thread.
     """
     while True:
-      command_input = this.get_command_input()
-      y_value = this.update_state(command_input)
-      shared_data[index] = y_value
-      current_time = time.time()
-      elapsed_time = current_time - this.last_time
+      command_input = this.get_command_input();
+      drone_states = this.update_state(command_input);  # Capture returned states
+      shared_data[index] = drone_states;  # Update shared data
+      current_time = time.time();
+      elapsed_time = current_time - this.last_time;
       if elapsed_time < this.dt:
-        time.sleep(this.dt - elapsed_time)
-      this.last_time = current_time
+        time.sleep(this.dt - elapsed_time);
+      this.last_time = current_time;
 
   @staticmethod
   def process_function(drone_group, shared_data):

@@ -1,6 +1,6 @@
+import serial
 
 from timer import timer
-import serial
 
 class SerialComm:
   def __init__(this, port, baudrate):
