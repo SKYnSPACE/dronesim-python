@@ -9,6 +9,8 @@ Install the following tools before moving on to the installation chapter.
 
 
 
+
+
 ### Installations
 
 After you installed the requirements, run the following commands on your `workspace`:
@@ -22,6 +24,8 @@ cd ./dronesim-python
 
 poetry install
 ```
+
+
 
 
 
